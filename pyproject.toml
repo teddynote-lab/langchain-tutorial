@@ -13,7 +13,10 @@ dependencies = [
     "langchain-openai>=0.3.30",
     "langchain-tavily>=0.2.11",
     "langchain-teddynote>=0.4.4",
+    "matplotlib>=3.10.5",
     "notebook>=7.4.5",
+    "pandas>=2.3.1",
     "pdfplumber>=0.11.7",
+    "seaborn>=0.13.2",
     "streamlit>=1.48.1",
 ]
