@@ -56,12 +56,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Windows:**
-```powershell
-# PowerShell 사용
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# 또는 pip 사용
-pip install uv
+uv 설치
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+현재 PowerShell 세션 새로고침
+
+```powershell
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+```
+
+설치 확인
+
+```powershell
+uv --version
 ```
 
 #### 프로젝트 의존성 설치
