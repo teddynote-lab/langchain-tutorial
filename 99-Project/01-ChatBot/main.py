@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 # Streamlit 및 기본 라이브러리
 import streamlit as st
-import os
-
-# LangChain 관련 라이브러리
 from langchain_core.messages.chat import ChatMessage
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -33,7 +30,7 @@ with st.sidebar:
 
     # LLM 모델 선택 드롭다운
     selected_model = st.selectbox(
-        "🤖 LLM 모델 선택",
+        "✅ LLM 모델 선택",
         ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"],
         index=0,
         help="사용할 언어모델을 선택하세요.",
@@ -155,16 +152,7 @@ if user_input:
 
         # AI 답변을 스트리밍 방식으로 실시간 표시
         with st.chat_message("assistant"):
-            container = st.empty()
-            ai_answer = ""
-
-            try:
-                for token in response:
-                    ai_answer += token.content
-                    container.markdown(ai_answer)
-            except Exception as e:
-                container.error(f"스트리밍 중 오류 발생: {str(e)}")
-                ai_answer = "죄송합니다. 답변 생성 중 오류가 발생했습니다."
+            ai_answer = st.write_stream(response)
 
         # 대화 기록을 세션에 저장
         add_message("user", user_input)
