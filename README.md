@@ -85,6 +85,29 @@ uv sync
 
 이 명령어는 가상 환경을 자동으로 생성하고 모든 필요한 의존성을 설치합니다.
 
+#### Visual Studio Code 환경변수 추가
+
+**MacOS**
+
+Command Palette 열기: Cmd + Shift + P
+
+"Shell Command: Install 'code' command in PATH" 입력 후 선택
+
+터미널을 재시작하면 code . 명령어 사용 가능
+
+**Windows PowerShell**
+
+```powershell
+# 현재 사용자용 PATH에 추가
+$vscodePath = "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$vscodePath", [EnvironmentVariableTarget]::User)
+
+# 즉시 적용을 위해 현재 세션에도 추가
+$env:Path += ";$vscodePath"
+```
+
+
+
 #### 가상 환경 활성화
 
 ```bash
