@@ -136,10 +136,10 @@ def generate_answer(
     # 입력값 검증
     if not image_filepath or not user_prompt:
         raise ValueError("이미지 파일 경로와 사용자 프롬프트가 필요합니다.")
-    
+
     if not isinstance(user_prompt, str) or user_prompt.strip() == "":
         raise ValueError("유효한 사용자 프롬프트가 필요합니다.")
-    
+
     # 외부 프롬프트 템플릿 로드
     try:
         prompt_template = load_prompt("prompts/multimodal.yaml", encoding="utf-8")
@@ -149,7 +149,7 @@ def generate_answer(
     # 프롬프트 변수에 값 할당 (None 값 방지)
     system_prompt = prompt_template.format(
         response_length=response_length if response_length is not None else 3,
-        domain_context=domain_context if domain_context is not None else "일반 분석"
+        domain_context=domain_context if domain_context is not None else "일반 분석",
     )
 
     # OpenAI ChatGPT 모델 초기화 (설정된 temperature 적용)
@@ -161,9 +161,7 @@ def generate_answer(
     # LangChain 멀티모달 객체 생성 (이미지 + 텍스트 처리)
     try:
         multimodal = MultiModal(
-            llm, 
-            system_prompt=system_prompt, 
-            user_prompt=user_prompt.strip()
+            llm, system_prompt=system_prompt, user_prompt=user_prompt.strip()
         )
 
         # 이미지 파일에 대한 스트리밍 방식 질의 및 답변 생성
@@ -205,11 +203,11 @@ warning_msg = st.empty()
 
 # 만약에 사용자 입력이 들어오면...
 if user_input:
-    # 현재 이미지가 있는지 확인 
+    # 현재 이미지가 있는지 확인
     if st.session_state["current_image"]:
         # 현재 이미지 사용
         image_filepath = st.session_state["current_image"]
-        
+
         try:
             # 답변 요청 (새로운 구성 옵션들을 포함)
             response = generate_answer(
@@ -229,19 +227,9 @@ if user_input:
         if response is not None:
             # 사용자의 입력 표시
             st.chat_message("user").write(user_input)
-            
+
             with st.chat_message("assistant"):
-                # 빈 공간(컨테이너)을 만들어서, 여기에 토큰을 스트리밍 출력한다.
-                container = st.empty()
-                
-                ai_answer = ""
-                try:
-                    for token in response:
-                        ai_answer += token.content
-                        container.markdown(ai_answer)
-                except Exception as e:
-                    container.error(f"스트리밍 중 오류 발생: {str(e)}")
-                    ai_answer = "죄송합니다. 답변 생성 중 오류가 발생했습니다."
+                ai_answer = st.write_stream(response)
 
             # 대화기록을 저장한다.
             add_message("user", user_input)

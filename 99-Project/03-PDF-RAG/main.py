@@ -136,6 +136,11 @@ def create_chain(retriever, model_name="gpt-4.1", response_length=3):
     """Retrieval-Augmented Generation 체인 생성"""
     # 단계 6: 프롬프트 템플릿 로드
     prompt = load_prompt("prompts/pdf-rag.yaml", encoding="utf-8")
+    # Create a LANGSMITH_API_KEY in Settings > API Keys
+    # from langsmith import Client
+
+    # client = Client()
+    # prompt = client.pull_prompt("teddynote/rag-prompt", include_model=True)
 
     # 단계 7: OpenAI 언어모델 초기화 (temperature=0으로 일관된 답변 생성)
     llm = ChatOpenAI(
@@ -190,19 +195,11 @@ if user_input:
     if chain is not None:
         # 사용자 질문 표시
         st.chat_message("user").write(user_input)
-
+        # RAG 체인을 통해 스트리밍 답변 생성
+        response = chain.stream(user_input)
         # AI 답변을 스트리밍 방식으로 실시간 표시
         with st.chat_message("assistant"):
-            # 스트리밍 답변을 위한 컨테이너
-            container = st.empty()
-            ai_answer = ""
-
-            # RAG 체인을 통해 스트리밍 답변 생성
-            response = chain.stream(user_input)
-            for token in response:
-                ai_answer += token
-                # 실시간으로 답변 업데이트
-                container.markdown(ai_answer)
+            ai_answer = st.write_stream(response)
 
         # 대화 기록을 세션에 저장
         add_message("user", user_input)
