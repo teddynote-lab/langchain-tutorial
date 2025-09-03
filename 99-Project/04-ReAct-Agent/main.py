@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-# Streamlit 및 기본 라이브러리
 import streamlit as st
 import os
 import uuid
 from typing import List
-
 from langchain.storage import LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -18,7 +15,6 @@ from langchain_tavily import TavilySearch
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from langchain_teddynote import logging
-from langchain_teddynote.messages import stream_graph
 
 # 환경 설정
 from dotenv import load_dotenv
@@ -222,7 +218,7 @@ def print_messages():
 
                                 # 도구 호출 인자 표시
                                 if tool_call["args"]:
-                                    st.markdown("📝 **호출 인자:**")
+                                    st.markdown("📝 **호출 인자**")
                                     for key, value in tool_call["args"].items():
                                         # 값이 너무 긴 경우 축약
                                         if isinstance(value, str) and len(value) > 100:
@@ -231,8 +227,8 @@ def print_messages():
 
                                 # 도구 실행 결과 표시
                                 if "result" in tool_call:
-                                    st.markdown("📊 **실행 결과:**")
-                                    st.code(tool_call["result"], language="text")
+                                    st.markdown("📊 **실행 결과**")
+                                    st.write(tool_call["result"])
 
                                 if i < len(tool_calls):
                                     st.divider()
@@ -526,11 +522,7 @@ if user_input:
                                 content = getattr(msg, "content", "")
                                 for tool_call in tool_calls:
                                     if tool_call["id"] == tool_id:
-                                        tool_call["result"] = (
-                                            content[:200] + "..."
-                                            if len(content) > 200
-                                            else content
-                                        )
+                                        tool_call["result"] = content
                                         break
 
                         # AI의 최종 응답 추출
@@ -556,7 +548,7 @@ if user_input:
 
                             # 도구 호출 인자 표시
                             if tool_call["args"]:
-                                st.markdown("📝 **호출 인자:**")
+                                st.markdown("📝 **호출 인자**")
                                 for key, value in tool_call["args"].items():
                                     # 값이 너무 긴 경우 축약
                                     if isinstance(value, str) and len(value) > 100:
@@ -565,8 +557,8 @@ if user_input:
 
                             # 도구 실행 결과 표시
                             if "result" in tool_call:
-                                st.markdown("📊 **실행 결과:**")
-                                st.code(tool_call["result"], language="text")
+                                st.markdown("📊 **실행 결과**")
+                                st.markdown(tool_call["result"])
 
                             if i < len(tool_calls):
                                 st.divider()
