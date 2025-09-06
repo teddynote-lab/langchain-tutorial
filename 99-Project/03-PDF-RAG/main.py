@@ -3,6 +3,8 @@ import streamlit as st
 import os
 
 # LangChain 관련 라이브러리
+from langchain.storage import LocalFileStore
+from langchain.embeddings import CacheBackedEmbeddings
 from langchain_core.messages.chat import ChatMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -120,6 +122,16 @@ def embed_file(file, search_k=6):
 
     # 단계 3: 임베딩(Embedding) 생성
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+    # 로컬 파일 저장소 설정 - "./cache/" 폴더에 캐시 파일 저장
+    store = LocalFileStore(".cache/embeddings")
+
+    # 캐시를 지원하는 임베딩 생성
+    cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+        underlying_embeddings=embeddings,  # 실제 임베딩을 수행할 모델
+        document_embedding_cache=store,  # 캐시를 저장할 저장소
+        namespace=embeddings.model,  # 모델별로 캐시를 구분하기 위한 네임스페이스
+    )
 
     # 단계 4: FAISS 벡터 데이터베이스 생성 (빠른 유사도 검색을 위함)
     vectorstore = FAISS.from_documents(documents=split_documents, embedding=embeddings)

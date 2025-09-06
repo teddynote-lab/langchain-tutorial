@@ -2,8 +2,11 @@ import streamlit as st
 import os
 import uuid
 from typing import List
+
+# LangChain 관련 라이브러리
 from langchain.storage import LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
+from langchain_core.messages.chat import ChatMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PDFPlumberLoader
@@ -148,6 +151,18 @@ def create_pdf_retriever_tool(uploaded_file) -> object:
     )
 
     vector_store = FAISS.from_documents(split_docs, cached_embedder)
+
+    # 로컬 파일 저장소 설정 - "./cache/" 폴더에 캐시 파일 저장
+    store = LocalFileStore(".cache/embeddings")
+
+    # 캐시를 지원하는 임베딩 생성
+    cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+        underlying_embeddings=embeddings,  # 실제 임베딩을 수행할 모델
+        document_embedding_cache=store,  # 캐시를 저장할 저장소
+        namespace=embeddings.model,  # 모델별로 캐시를 구분하기 위한 네임스페이스
+    )
+
+    vector_store = FAISS.from_documents(split_docs, cached_embedder)
     retriever = vector_store.as_retriever(search_kwargs={"k": 6})
 
     # 리트리버 도구 생성
@@ -209,6 +224,7 @@ def print_messages():
                 content = msg_data.get("content")
                 tool_calls = msg_data.get("tool_calls", [])
 
+
                 with st.chat_message(role):
                     # 도구 호출 정보가 있는 경우 먼저 표시
                     if tool_calls:
@@ -224,6 +240,7 @@ def print_messages():
                                         if isinstance(value, str) and len(value) > 100:
                                             value = value[:100] + "..."
                                         st.markdown(f"  • `{key}`: {value}")
+
 
                                 # 도구 실행 결과 표시
                                 if "result" in tool_call:
@@ -317,6 +334,7 @@ with st.sidebar:
     use_web_search = st.checkbox(
         "🌐 웹 검색 도구",
         value=True,
+        help="실시간 웹 검색을 통해 최신 정보를 찾습니다.",
         help="실시간 웹 검색을 통해 최신 정보를 찾습니다.",
     )
 
@@ -415,13 +433,20 @@ def setup_agent():
     }
     config_str = str(sorted(current_config.items()))
 
+
     # 설정이 변경된 경우에만 Agent 재생성
     if (
         st.session_state["current_tool_config"] != config_str
         or st.session_state["agent"] is None
     ):
 
+    if (
+        st.session_state["current_tool_config"] != config_str
+        or st.session_state["agent"] is None
+    ):
+
         tools = []
+
 
         # 웹 검색 도구 추가
         if use_web_search:
@@ -437,6 +462,7 @@ def setup_agent():
         # Python REPL 도구 추가
         if use_python_repl:
             tools.append(create_python_repl_tool())
+
 
         # PDF 리트리버 도구 추가
         if use_pdf_retriever:
@@ -525,6 +551,7 @@ if user_input:
                                         tool_call["result"] = content
                                         break
 
+
                         # AI의 최종 응답 추출
                         ai_messages = [
                             msg
@@ -548,7 +575,7 @@ if user_input:
 
                             # 도구 호출 인자 표시
                             if tool_call["args"]:
-                                st.markdown("📝 **호출 인자**")
+                                st.markdown("📝 **호출 인자:**")
                                 for key, value in tool_call["args"].items():
                                     # 값이 너무 긴 경우 축약
                                     if isinstance(value, str) and len(value) > 100:
