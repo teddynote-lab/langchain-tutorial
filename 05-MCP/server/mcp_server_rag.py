@@ -15,8 +15,9 @@ def create_retriever() -> Any:
     """"""
     # PDF 문서를 로드합니다.
     import os
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    pdf_path = os.path.join(current_dir, "data", "SPRI_AI_Brief_2023년12월호_F.pdf")
+    pdf_path = os.path.join(current_dir, "data", "SPRI_AI_Brief_2025_08.pdf")
     pdf = PDFRetrievalChain([pdf_path]).create_chain()
 
     # retriever와 chain을 생성합니다.
