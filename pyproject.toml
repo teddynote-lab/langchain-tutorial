@@ -10,6 +10,7 @@ dependencies = [
     "langchain>=0.3.27",
     "langchain-chroma>=0.2.5",
     "langchain-experimental>=0.3.4",
+    "langchain-mcp-adapters>=0.1.9",
     "langchain-openai>=0.3.30",
     "langchain-tavily>=0.2.11",
     "langchain-teddynote>=0.5.1",

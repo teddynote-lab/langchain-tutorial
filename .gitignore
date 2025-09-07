@@ -11,3 +11,7 @@ wheels/
 .env
 .DS_Store
 .cache/
+
+faiss_index/
+faiss_db/
+cache/
