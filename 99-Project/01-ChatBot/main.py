@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Streamlit 및 기본 라이브러리
+import os
 import streamlit as st
 from langchain_core.messages.chat import ChatMessage
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -27,14 +26,6 @@ if "messages" not in st.session_state:
 with st.sidebar:
     # 대화 기록 초기화 버튼
     clear_btn = st.button("🗑️ 대화 초기화")
-
-    # LLM 모델 선택 드롭다운
-    selected_model = st.selectbox(
-        "✅ LLM 모델 선택",
-        ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"],
-        index=0,
-        help="사용할 언어모델을 선택하세요.",
-    )
 
     # Temperature 설정 (모델 창의성 조절)
     temperature = st.slider(
@@ -95,15 +86,15 @@ def get_length_instruction(length):
 
 
 # AI 답변 생성 함수
-def generate_answer(
-    user_input, system_prompt, model_name, temperature, response_length
-):
+def generate_answer(user_input, system_prompt, temperature, response_length):
     """사용자 입력에 대한 AI 답변 생성"""
     try:
         # OpenAI 모델 초기화
         llm = ChatOpenAI(
-            model=model_name,
+            model="openai/gpt-4.1",
             temperature=temperature,
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url=os.getenv("OPENROUTER_BASE_URL"),
         )
 
         # 시스템 프롬프트에 답변 길이 지시사항 추가
@@ -142,7 +133,6 @@ if user_input:
         response = generate_answer(
             user_input=user_input,
             system_prompt=system_prompt,
-            model_name=selected_model,
             temperature=temperature,
             response_length=response_length,
         )
@@ -166,6 +156,5 @@ if user_input:
 with st.sidebar:
     st.divider()
     st.markdown("### 📊 현재 설정")
-    st.caption(f"**모델:** {selected_model}")
     st.caption(f"**Temperature:** {temperature}")
     st.caption(f"**답변 길이:** {response_length}")
