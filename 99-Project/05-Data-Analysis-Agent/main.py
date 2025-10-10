@@ -54,25 +54,28 @@ with st.expander("📋 데이터 미리보기", expanded=True):
     if "df" in st.session_state and st.session_state["df"] is not None:
         loaded_data = st.session_state["df"]
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("**📊 데이터 기본 정보**")
             st.write(f"• 행 수: {loaded_data.shape[0]:,}개")
             st.write(f"• 열 수: {loaded_data.shape[1]}개")
             if st.session_state.get("filename"):
                 st.write(f"• 파일명: {st.session_state['filename']}")
-        
+
         with col2:
             st.markdown("**📁 컬럼 목록**")
             for col in loaded_data.columns:
                 st.write(f"• {col}")
-        
+
         st.markdown("**🔍 상위 5개 행**")
         st.dataframe(loaded_data.head(), use_container_width=True)
     else:
-        st.info("📥 사이드바에서 파일을 업로드하고 '데이터 분석 시작'을 클릭하면 데이터 미리보기가 표시됩니다.")
+        st.info(
+            "📥 사이드바에서 파일을 업로드하고 '데이터 분석 시작'을 클릭하면 데이터 미리보기가 표시됩니다."
+        )
 
 st.divider()
+
 
 # 세션 상태 초기화
 def init_session_state():
@@ -175,7 +178,7 @@ with st.sidebar:
     st.subheader("🤖 AI 모델 설정")
     selected_model = st.selectbox(
         "OpenAI 모델을 선택해주세요.",
-        ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini"],
+        ["gpt-4.1", "gpt-4.1-mini"],
         index=0,
         help="분석에 사용할 AI 모델을 선택해주세요.",
     )
