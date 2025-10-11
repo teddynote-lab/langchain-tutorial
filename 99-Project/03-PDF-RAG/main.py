@@ -24,17 +24,9 @@ load_dotenv(override=True)
 # LangSmith 추적을 설정합니다. https://smith.langchain.com
 logging.langsmith("LangChain-Tutorial")
 
-# 캐시 디렉토리 생성 (파일 업로드 및 임베딩 저장을 위함)
+# 캐시 디렉토리 생성 (임베딩 저장을 위함)
 if not os.path.exists(".cache"):
     os.mkdir(".cache")
-
-# 파일 업로드 전용 폴더
-if not os.path.exists(".cache/files"):
-    os.mkdir(".cache/files")
-
-# 벡터 임베딩 저장 폴더
-if not os.path.exists(".cache/embeddings"):
-    os.mkdir(".cache/embeddings")
 
 # Streamlit 앱 제목 설정
 st.title("📄 PDF 기반 QA 시스템")
@@ -45,28 +37,29 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 if "chain" not in st.session_state:
-    # RAG 체인 초기화 (파일 업로드 전까지는 None)
+    # RAG 체인 초기화
     st.session_state["chain"] = None
+
+if "embeddings_initialized" not in st.session_state:
+    # 임베딩 초기화 여부 추적
+    st.session_state["embeddings_initialized"] = False
+
+if "loaded_pdf_files" not in st.session_state:
+    # 로드된 PDF 파일 목록
+    st.session_state["loaded_pdf_files"] = []
 
 # 사이드바 UI 구성
 with st.sidebar:
+    # 로드된 PDF 파일 정보 표시
+    if st.session_state["loaded_pdf_files"]:
+        st.info(f"📁 로드된 PDF 파일 ({len(st.session_state['loaded_pdf_files'])}개):\n\n" +
+                "\n".join([f"• {file}" for file in st.session_state["loaded_pdf_files"]]))
+
+    # PDF 재로드 버튼
+    reload_btn = st.button("🔄 PDF 재로드")
+
     # 대화 기록 초기화 버튼
     clear_btn = st.button("🗑️ 대화 초기화")
-
-    # PDF 파일 업로드 위젯
-    uploaded_file = st.file_uploader(
-        "📎 PDF 파일 업로드",
-        type=["pdf"],
-        help="PDF 파일을 업로드하면 문서 내용을 기반으로 질문에 답변합니다.",
-    )
-
-    # LLM 모델 선택 드롭다운
-    selected_model = st.selectbox(
-        "LLM 모델 선택",
-        ["gpt-4.1", "gpt-4.1-mini"],
-        index=0,
-        help="사용할 언어모델을 선택하세요.",
-    )
 
     # 답변 길이 조절 슬라이더
     response_length = st.slider(
@@ -86,6 +79,26 @@ with st.sidebar:
         help="질문과 관련된 문서 청크를 몇 개까지 검색할지 설정합니다. 많을수록 더 많은 정보를 참고하지만 처리 시간이 길어집니다.",
     )
 
+    # Chunk 크기 조절 슬라이더
+    chunk_size = st.slider(
+        "📐 Chunk 크기 설정",
+        min_value=500,
+        max_value=2000,
+        value=1000,
+        step=100,
+        help="텍스트를 분할할 때 각 청크의 최대 문자 수를 설정합니다. 크기가 클수록 더 많은 문맥을 포함하지만 검색 정확도가 낮아질 수 있습니다.",
+    )
+
+    # Chunk overlap 조절 슬라이더
+    chunk_overlap = st.slider(
+        "🔗 Chunk Overlap 설정",
+        min_value=0,
+        max_value=200,
+        value=50,
+        step=10,
+        help="청크 간 겹치는 문자 수를 설정합니다. 겹침이 있으면 문맥 연결성이 향상됩니다.",
+    )
+
 
 # 이전 대화 기록을 화면에 출력하는 함수
 def print_messages():
@@ -99,48 +112,60 @@ def add_message(role, message):
     """새로운 대화 메시지를 세션 상태에 저장"""
     st.session_state["messages"].append(ChatMessage(role=role, content=message))
 
+def format_docs(docs):
+    return "\n".join(
+        [
+            f"<document><content>{doc.page_content}</content><metadata><page>{doc.metadata['page']+1}</page><source>{doc.metadata['source']}</source></metadata></document>"
+            for i, doc in enumerate(docs)
+        ]
+    )
 
-# PDF 파일을 벡터 임베딩으로 변환하는 함수 (캐시 적용으로 재처리 방지)
-@st.cache_resource(show_spinner="📄 업로드된 PDF를 분석하고 있습니다...")
-def embed_file(file, search_k=6):
-    # 업로드된 파일을 로컬 캐시 디렉토리에 저장
-    file_content = file.read()
-    file_path = f"./.cache/files/{file.name}"
-    with open(file_path, "wb") as f:
-        f.write(file_content)
+# data/ 폴더의 모든 PDF 파일을 벡터 임베딩으로 변환하는 함수
+def embed_pdfs_from_data_folder(chunk_size=1000, chunk_overlap=50, search_k=6):
+    """data/ 폴더의 모든 PDF를 로드하여 벡터 데이터베이스 생성"""
+    # 단계 1: data/ 폴더의 모든 PDF 파일 찾기
+    data_folder = "./data"
+    if not os.path.exists(data_folder):
+        os.makedirs(data_folder)
+        st.warning("⚠️ data/ 폴더가 비어있습니다. PDF 파일을 data/ 폴더에 추가해주세요.")
+        return None
 
-    # 단계 1: 문서 로드(Load Documents)
-    loader = PDFPlumberLoader(file_path)
-    docs = loader.load()
+    pdf_files = [f for f in os.listdir(data_folder) if f.endswith('.pdf')]
 
-    # 단계 2: 문서 분할 (긴 문서를 작은 청크로 나누어 검색 성능 향상)
+    if not pdf_files:
+        st.warning("⚠️ data/ 폴더에 PDF 파일이 없습니다. PDF 파일을 data/ 폴더에 추가해주세요.")
+        return None
+
+    # 단계 2: 모든 PDF 파일을 로드
+    all_docs = []
+    for pdf_file in pdf_files:
+        file_path = os.path.join(data_folder, pdf_file)
+        loader = PDFPlumberLoader(file_path)
+        docs = loader.load()
+        all_docs.extend(docs)
+
+    # 단계 3: 문서 분할 (긴 문서를 작은 청크로 나누어 검색 성능 향상)
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,  # 각 청크의 최대 문자 수
-        chunk_overlap=50,  # 청크 간 겹치는 문자 수 (문맥 연결성 유지)
+        chunk_size=chunk_size,  # 각 청크의 최대 문자 수
+        chunk_overlap=chunk_overlap,  # 청크 간 겹치는 문자 수 (문맥 연결성 유지)
     )
-    split_documents = text_splitter.split_documents(docs)
+    split_documents = text_splitter.split_documents(all_docs)
 
-    # 단계 3: 임베딩(Embedding) 생성
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-
-    # 로컬 파일 저장소 설정 - "./cache/" 폴더에 캐시 파일 저장
-    store = LocalFileStore(".cache/embeddings")
-
-    # 캐시를 지원하는 임베딩 생성
-    cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-        underlying_embeddings=embeddings,  # 실제 임베딩을 수행할 모델
-        document_embedding_cache=store,  # 캐시를 저장할 저장소
-        namespace=embeddings.model,  # 모델별로 캐시를 구분하기 위한 네임스페이스
+    # 단계 4: 임베딩(Embedding) 생성
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-small",
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=os.getenv("EMBEDDING_BASE_URL")
     )
 
-    # 단계 4: FAISS 벡터 데이터베이스 생성 (빠른 유사도 검색을 위함)
+    # 단계 5: FAISS 벡터 데이터베이스 생성 (빠른 유사도 검색을 위함)
     vectorstore = FAISS.from_documents(documents=split_documents, embedding=embeddings)
 
-    # 단계 5: 검색기(Retriever) 생성 (질문과 관련된 문서 청크를 찾는 역할)
+    # 단계 6: 검색기(Retriever) 생성 (질문과 관련된 문서 청크를 찾는 역할)
     retriever = vectorstore.as_retriever(
         search_kwargs={"k": search_k}  # 설정된 개수의 관련 문서 반환
     )
-    return retriever
+    return retriever, pdf_files
 
 
 # RAG 체인을 생성하는 함수 (검색-생성 파이프라인)
@@ -148,21 +173,19 @@ def create_chain(retriever, model_name="gpt-4.1", response_length=3):
     """Retrieval-Augmented Generation 체인 생성"""
     # 단계 6: 프롬프트 템플릿 로드
     prompt = load_prompt("prompts/pdf-rag.yaml", encoding="utf-8")
-    # Create a LANGSMITH_API_KEY in Settings > API Keys
-    # from langsmith import Client
-
-    # client = Client()
-    # prompt = client.pull_prompt("teddynote/rag-prompt", include_model=True)
 
     # 단계 7: OpenAI 언어모델 초기화 (temperature=0으로 일관된 답변 생성)
     llm = ChatOpenAI(
-        model_name=model_name, temperature=0  # 창의성보다 정확성을 위해 0으로 설정
+        model="openai/gpt-4.1",
+        temperature=0,
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=os.getenv("OPENROUTER_BASE_URL"),
     )
 
     # 단계 8: RAG 체인 구성 (검색 → 프롬프트 → LLM → 출력 파싱)
     chain = (
         {
-            "context": retriever,  # 관련 문서 검색
+            "context": retriever | format_docs,  # 관련 문서 검색
             "question": RunnablePassthrough(),  # 사용자 질문 전달
             "response_length": lambda _: response_length,  # 답변 길이 설정 전달
         }
@@ -173,18 +196,35 @@ def create_chain(retriever, model_name="gpt-4.1", response_length=3):
     return chain
 
 
-# PDF 파일 업로드 시 RAG 시스템 초기화
-if uploaded_file:
-    # 업로드된 파일을 벡터 데이터베이스로 변환 (설정된 검색 개수 적용)
-    retriever = embed_file(uploaded_file, search_k=search_k)
-    # 선택된 모델과 답변 길이 설정으로 RAG 체인 생성
-    chain = create_chain(
-        retriever, model_name=selected_model, response_length=response_length
-    )
-    st.session_state["chain"] = chain
-    st.success(
-        f"✅ '{uploaded_file.name}' 파일이 성공적으로 로드되었습니다! (검색 문서: {search_k}개)"
-    )
+# 앱 시작 시 data/ 폴더의 PDF 파일 자동 로드
+if not st.session_state["embeddings_initialized"]:
+    with st.spinner("📄 data/ 폴더의 PDF 파일들을 로드하고 있습니다..."):
+        result = embed_pdfs_from_data_folder(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            search_k=search_k
+        )
+
+        if result is not None:
+            retriever, pdf_files = result
+            # RAG 체인 생성
+            chain = create_chain(retriever, response_length=response_length)
+            st.session_state["chain"] = chain
+            st.session_state["embeddings_initialized"] = True
+            st.session_state["loaded_pdf_files"] = pdf_files
+            st.success(
+                f"✅ {len(pdf_files)}개의 PDF 파일이 성공적으로 로드되었습니다!\n\n"
+                f"📁 로드된 파일: {', '.join(pdf_files)}"
+            )
+        else:
+            st.session_state["embeddings_initialized"] = True
+
+# PDF 재로드 버튼 클릭 시
+if reload_btn:
+    st.session_state["embeddings_initialized"] = False
+    st.session_state["chain"] = None
+    st.session_state["messages"] = []
+    st.rerun()  # 페이지 새로고침
 
 # 대화 초기화 버튼 클릭 시
 if clear_btn:
@@ -217,5 +257,5 @@ if user_input:
         add_message("user", user_input)
         add_message("assistant", ai_answer)
     else:
-        # PDF 파일 미업로드 시 경고 메시지
-        warning_msg.error("⚠️ 먼저 PDF 파일을 업로드해 주세요.")
+        # PDF 파일이 없을 시 경고 메시지
+        warning_msg.error("⚠️ data/ 폴더에 PDF 파일을 추가한 후 앱을 다시 시작해 주세요.")

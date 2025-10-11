@@ -50,18 +50,9 @@ with st.sidebar:
     clear_btn = st.button("🗑️ 대화 초기화")
 
     # 이미지 파일 업로드 위젯
-    uploaded_file = st.file_uploader(
-        "📎 이미지 파일 업로드",
-        type=["jpg", "jpeg", "png"],
-        help="이미지 파일을 업로드하면 분석할 수 있습니다.",
-    )
-
-    # LLM 모델 선택 드롭다운
-    selected_model = st.selectbox(
-        "🤖 LLM 모델 선택",
-        ["gpt-4.1", "gpt-4.1-mini"],
-        index=0,
-        help="사용할 언어모델을 선택하세요.",
+    image_url = st.text_input(
+        "이미지 파일 링크(URL)",
+        help="이미지 파일의 링크를 입력하면 분석할 수 있습니다.",
     )
 
     # 분석 도메인 컨텍스트 선택
@@ -109,33 +100,18 @@ def add_message(role, message):
     st.session_state["messages"].append(ChatMessage(role=role, content=message))
 
 
-# 이미지 파일을 로컬에 저장하는 함수 (캐시 적용으로 재처리 방지)
-@st.cache_resource(show_spinner="🇺� 업로드된 이미지를 처리하고 있습니다...")
-def process_imagefile(file):
-    """업로드된 이미지 파일을 로컬 캐시 디렉토리에 저장"""
-    # 업로드된 이미지 파일을 로컬 디렉토리에 저장
-    file_content = file.read()
-    file_path = f"./.cache/files/{file.name}"
-
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-
-    return file_path
-
-
 # 외부 프롬프트를 로드하여 멀티모달 답변 생성하는 함수
 def generate_answer(
-    image_filepath,
+    img_url,
     user_prompt,
-    model_name="gpt-4.1",
     temperature=0.1,
     response_length=3,
     domain_context="금융/재무제표",
 ):
     """이미지와 텍스트를 결합한 멀티모달 AI 답변 생성"""
     # 입력값 검증
-    if not image_filepath or not user_prompt:
-        raise ValueError("이미지 파일 경로와 사용자 프롬프트가 필요합니다.")
+    if not img_url or not user_prompt:
+        raise ValueError("이미지 주소(URL) 와 사용자 프롬프트가 필요합니다.")
 
     if not isinstance(user_prompt, str) or user_prompt.strip() == "":
         raise ValueError("유효한 사용자 프롬프트가 필요합니다.")
@@ -154,8 +130,10 @@ def generate_answer(
 
     # OpenAI ChatGPT 모델 초기화 (설정된 temperature 적용)
     llm = ChatOpenAI(
-        temperature=temperature if temperature is not None else 0.1,
-        model_name=model_name if model_name is not None else "gpt-4.1",
+        model="openai/gpt-4.1",
+        temperature=temperature,
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url=os.getenv("OPENROUTER_BASE_URL"),
     )
 
     # LangChain 멀티모달 객체 생성 (이미지 + 텍스트 처리)
@@ -165,7 +143,7 @@ def generate_answer(
         )
 
         # 이미지 파일에 대한 스트리밍 방식 질의 및 답변 생성
-        answer = multimodal.stream(image_filepath)
+        answer = multimodal.stream(image_url)
         return answer
     except Exception as e:
         raise RuntimeError(f"멀티모달 처리 중 오류 발생: {e}")
@@ -178,10 +156,8 @@ if clear_btn:
     st.rerun()  # 페이지 새로고침
 
 # 업로드된 파일 처리
-if uploaded_file:
-    # 이미지 파일을 처리하고 현재 이미지로 설정
-    image_filepath = process_imagefile(uploaded_file)
-    st.session_state["current_image"] = image_filepath
+if image_url:
+    st.session_state["current_image"] = image_url
 
 # 현재 이미지 미리보기
 if st.session_state["current_image"]:
@@ -206,14 +182,13 @@ if user_input:
     # 현재 이미지가 있는지 확인
     if st.session_state["current_image"]:
         # 현재 이미지 사용
-        image_filepath = st.session_state["current_image"]
+        img = st.session_state["current_image"]
 
         try:
             # 답변 요청 (새로운 구성 옵션들을 포함)
             response = generate_answer(
-                image_filepath=image_filepath,
+                img_url=img,
                 user_prompt=user_input,
-                model_name=selected_model,
                 temperature=temperature,
                 response_length=response_length,
                 domain_context=domain_context,
