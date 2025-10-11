@@ -24,10 +24,6 @@ load_dotenv(override=True)
 # LangSmith 추적을 설정합니다. https://smith.langchain.com
 logging.langsmith("LangChain-Tutorial")
 
-# 캐시 디렉토리 생성 (임베딩 저장을 위함)
-if not os.path.exists(".cache"):
-    os.mkdir(".cache")
-
 # Streamlit 앱 제목 설정
 st.title("📄 PDF 기반 QA 시스템")
 
@@ -52,8 +48,10 @@ if "loaded_pdf_files" not in st.session_state:
 with st.sidebar:
     # 로드된 PDF 파일 정보 표시
     if st.session_state["loaded_pdf_files"]:
-        st.info(f"📁 로드된 PDF 파일 ({len(st.session_state['loaded_pdf_files'])}개):\n\n" +
-                "\n".join([f"• {file}" for file in st.session_state["loaded_pdf_files"]]))
+        st.info(
+            f"📁 로드된 PDF 파일 ({len(st.session_state['loaded_pdf_files'])}개):\n\n"
+            + "\n".join([f"• {file}" for file in st.session_state["loaded_pdf_files"]])
+        )
 
     # PDF 재로드 버튼
     reload_btn = st.button("🔄 PDF 재로드")
@@ -112,6 +110,7 @@ def add_message(role, message):
     """새로운 대화 메시지를 세션 상태에 저장"""
     st.session_state["messages"].append(ChatMessage(role=role, content=message))
 
+
 def format_docs(docs):
     return "\n".join(
         [
@@ -119,6 +118,7 @@ def format_docs(docs):
             for i, doc in enumerate(docs)
         ]
     )
+
 
 # data/ 폴더의 모든 PDF 파일을 벡터 임베딩으로 변환하는 함수
 def embed_pdfs_from_data_folder(chunk_size=1000, chunk_overlap=50, search_k=6):
@@ -130,10 +130,12 @@ def embed_pdfs_from_data_folder(chunk_size=1000, chunk_overlap=50, search_k=6):
         st.warning("⚠️ data/ 폴더가 비어있습니다. PDF 파일을 data/ 폴더에 추가해주세요.")
         return None
 
-    pdf_files = [f for f in os.listdir(data_folder) if f.endswith('.pdf')]
+    pdf_files = [f for f in os.listdir(data_folder) if f.endswith(".pdf")]
 
     if not pdf_files:
-        st.warning("⚠️ data/ 폴더에 PDF 파일이 없습니다. PDF 파일을 data/ 폴더에 추가해주세요.")
+        st.warning(
+            "⚠️ data/ 폴더에 PDF 파일이 없습니다. PDF 파일을 data/ 폴더에 추가해주세요."
+        )
         return None
 
     # 단계 2: 모든 PDF 파일을 로드
@@ -155,7 +157,7 @@ def embed_pdfs_from_data_folder(chunk_size=1000, chunk_overlap=50, search_k=6):
     embeddings = OpenAIEmbeddings(
         model="text-embedding-3-small",
         api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url=os.getenv("EMBEDDING_BASE_URL")
+        base_url=os.getenv("EMBEDDING_BASE_URL"),
     )
 
     # 단계 5: FAISS 벡터 데이터베이스 생성 (빠른 유사도 검색을 위함)
@@ -200,9 +202,7 @@ def create_chain(retriever, model_name="gpt-4.1", response_length=3):
 if not st.session_state["embeddings_initialized"]:
     with st.spinner("📄 data/ 폴더의 PDF 파일들을 로드하고 있습니다..."):
         result = embed_pdfs_from_data_folder(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            search_k=search_k
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap, search_k=search_k
         )
 
         if result is not None:
@@ -258,4 +258,6 @@ if user_input:
         add_message("assistant", ai_answer)
     else:
         # PDF 파일이 없을 시 경고 메시지
-        warning_msg.error("⚠️ data/ 폴더에 PDF 파일을 추가한 후 앱을 다시 시작해 주세요.")
+        warning_msg.error(
+            "⚠️ data/ 폴더에 PDF 파일을 추가한 후 앱을 다시 시작해 주세요."
+        )

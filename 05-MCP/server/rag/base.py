@@ -16,7 +16,7 @@ class RetrievalChain(ABC):
     def __init__(self):
         self.source_uri = None
         self.k = 8
-        self.model_name = "gpt-4.1-mini"
+        self.model_name = "openai/gpt-4.1"
         self.temperature = 0
         self.prompt = "teddynote/rag-prompt"
         self.embeddings = "text-embedding-3-small"
@@ -43,17 +43,21 @@ class RetrievalChain(ABC):
             self.cache_dir.mkdir(parents=True, exist_ok=True)
 
             # 기본 임베딩 모델 생성
-            underlying_embeddings = OpenAIEmbeddings(model=self.embeddings)
+            underlying_embeddings = OpenAIEmbeddings(
+                model=self.embeddings,  # 모델명 입력 (text-embedding-3-small / text-embedding-3-large)
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url=os.getenv("EMBEDDING_BASE_URL"),
+            )
 
             # 파일 기반 캐시 스토어 생성
             store = LocalFileStore(str(self.cache_dir))
 
             # 캐시 기반 임베딩 생성 (SHA-256 사용으로 보안 강화)
             cached_embeddings = CacheBackedEmbeddings.from_bytes_store(
-                underlying_embeddings, 
-                store, 
+                underlying_embeddings,
+                store,
                 namespace=self.embeddings,
-                key_encoder="sha256"
+                key_encoder="sha256",
             )
 
             return cached_embeddings
@@ -61,7 +65,11 @@ class RetrievalChain(ABC):
         except Exception as e:
             print(f"Warning: Failed to create cached embeddings: {e}")
             print("Falling back to basic OpenAI embeddings without caching")
-            return OpenAIEmbeddings(model=self.embeddings)
+            return OpenAIEmbeddings(
+                model=self.embeddings,  # 모델명 입력 (text-embedding-3-small / text-embedding-3-large)
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url=os.getenv("EMBEDDING_BASE_URL"),
+            )
 
     def create_vectorstore(self, split_docs):
         try:
@@ -128,7 +136,12 @@ class RetrievalChain(ABC):
         return dense_retriever
 
     def create_model(self):
-        return ChatOpenAI(model_name=self.model_name, temperature=self.temperature)
+        return ChatOpenAI(
+            temperature=self.temperature,
+            model_name=self.model_name,  # OpenRouter에서 제공하는 GPT-4.1 모델
+            api_key=os.getenv("OPENROUTER_API_KEY"),  # OpenRouter API 키
+            base_url=os.getenv("OPENROUTER_BASE_URL"),  # OpenRouter API URL
+        )
 
     def create_prompt(self):
         return hub.pull(self.prompt)
