@@ -98,8 +98,8 @@ class PDFRetrievalChain(RetrievalChain):
 
     def create_text_splitter(self) -> RecursiveCharacterTextSplitter:
         return RecursiveCharacterTextSplitter(
-            chunk_size=1200,
-            chunk_overlap=200,
+            chunk_size=500,
+            chunk_overlap=50,
             length_function=len,
             is_separator_regex=False,
         )

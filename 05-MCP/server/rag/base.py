@@ -45,8 +45,6 @@ class RetrievalChain(ABC):
             # 기본 임베딩 모델 생성
             underlying_embeddings = OpenAIEmbeddings(
                 model=self.embeddings,  # 모델명 입력 (text-embedding-3-small / text-embedding-3-large)
-                api_key=os.getenv("OPENROUTER_API_KEY"),
-                base_url=os.getenv("EMBEDDING_BASE_URL"),
             )
 
             # 파일 기반 캐시 스토어 생성
@@ -67,8 +65,6 @@ class RetrievalChain(ABC):
             print("Falling back to basic OpenAI embeddings without caching")
             return OpenAIEmbeddings(
                 model=self.embeddings,  # 모델명 입력 (text-embedding-3-small / text-embedding-3-large)
-                api_key=os.getenv("OPENROUTER_API_KEY"),
-                base_url=os.getenv("EMBEDDING_BASE_URL"),
             )
 
     def create_vectorstore(self, split_docs):

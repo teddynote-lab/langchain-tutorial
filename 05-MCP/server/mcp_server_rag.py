@@ -2,7 +2,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from dotenv import load_dotenv
 from typing import Any
 from rag.pdf import PDFRetrievalChain
@@ -57,5 +57,6 @@ async def retrieve(query: str) -> str:
 
 
 if __name__ == "__main__":
+    print("RAG MCP Server is running")
     # Run the MCP server with stdio transport for integration with MCP clients
-    mcp.run(transport="stdio")
+    mcp.run(transport="streamable-http", port=8005)
