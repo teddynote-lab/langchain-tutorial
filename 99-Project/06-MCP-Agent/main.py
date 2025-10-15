@@ -563,24 +563,40 @@ if user_input:
 
                     response = run_async(invoke_agent())
 
-                    # 현재 턴에서 새로 추가된 메시지만 분석
+                    # 현재 턴의 메시지 추출 (역순 탐색 방식)
                     if response and "messages" in response:
                         all_messages = response["messages"]
 
-                        # 이전 메시지 개수 계산 (user 입력 1개 포함)
-                        # 메모리에 저장된 이전 대화 개수
-                        previous_message_count = (
-                            len(st.session_state["messages"]) * 2
-                        )  # user + assistant 쌍
+                        # 디버깅: 전체 메시지 수 확인
+                        print(f"전체 메시지 수: {len(all_messages)}")
 
-                        # 현재 턴에서 새로 생성된 메시지만 추출
-                        # user 메시지(1개) + AI tool_calls + tool 결과 + AI 최종 응답
-                        new_messages = all_messages[previous_message_count:]
+                        # 역순으로 탐색하여 현재 턴의 메시지만 추출
+                        # 마지막 human 메시지(현재 입력)부터 마지막 AI 응답까지
 
-                        # 새 메시지만 분석하여 도구 호출 및 AI 응답 추출
-                        for msg in new_messages:
-                            # 도구 호출 메시지 확인
+                        current_turn_messages = []
+
+                        # 1단계: 마지막 human 메시지의 인덱스 찾기
+                        last_human_idx = None
+                        for i in range(len(all_messages) - 1, -1, -1):
+                            if getattr(all_messages[i], "type", None) == "human":
+                                last_human_idx = i
+                                break
+
+                        # 2단계: 마지막 human 메시지 이후의 모든 메시지가 현재 턴
+                        if last_human_idx is not None:
+                            current_turn_messages = all_messages[last_human_idx:]
+
+                        # 디버깅: 현재 턴 메시지 수 확인
+                        print(f"현재 턴 메시지 수: {len(current_turn_messages)}")
+                        print(f"마지막 human 메시지 인덱스: {last_human_idx}")
+
+                        # 현재 턴 메시지에서 도구 호출 정보 추출
+                        for msg in current_turn_messages:
+                            msg_type = getattr(msg, "type", None)
+
+                            # 도구 호출 메시지 확인 (AI 메시지에 tool_calls 속성이 있음)
                             if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                print(f"도구 호출 발견: {len(msg.tool_calls)}개")
                                 for tool_call in msg.tool_calls:
                                     tool_info = {
                                         "name": tool_call.get("name", "Unknown Tool"),
@@ -590,28 +606,21 @@ if user_input:
                                     tool_calls.append(tool_info)
 
                             # 도구 실행 결과 메시지 확인
-                            elif hasattr(msg, "type") and msg.type == "tool":
-                                # 기존 도구 호출 정보에 결과 추가
+                            if msg_type == "tool":
                                 tool_id = getattr(msg, "tool_call_id", None)
                                 content = getattr(msg, "content", "")
+                                print(f"도구 결과 발견: {tool_id}")
                                 for tool_call in tool_calls:
                                     if tool_call["id"] == tool_id:
                                         tool_call["result"] = content
                                         break
 
-                        # AI의 최종 응답 추출 (새 메시지 중에서만)
-                        ai_messages = [
-                            msg
-                            for msg in new_messages
-                            if hasattr(msg, "type") and msg.type == "ai"
-                        ]
-                        if ai_messages:
-                            full_response = ai_messages[-1].content
-                        else:
-                            # AIMessage 타입이 아닌 경우 content 속성 직접 접근
-                            for msg in reversed(new_messages):
-                                if hasattr(msg, "content") and msg.content.strip():
-                                    full_response = msg.content
+                        # AI의 최종 응답 추출 (마지막 AI 메시지)
+                        for msg in reversed(current_turn_messages):
+                            if getattr(msg, "type", None) == "ai":
+                                content = getattr(msg, "content", "")
+                                if content and content.strip():
+                                    full_response = content
                                     break
 
                 # 도구 호출 정보 표시 (확장 가능한 섹션으로)
