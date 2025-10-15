@@ -279,7 +279,7 @@ with st.sidebar:
     # 원격 시간 서버
     use_time_server = st.checkbox(
         "⏰ 시간 서버 (HTTP)",
-        value=True,
+        value=False,
         help="현재 시간 정보를 제공하는 원격 MCP 서버",
     )
     time_server_url = st.text_input(
