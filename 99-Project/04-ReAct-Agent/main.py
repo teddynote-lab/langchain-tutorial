@@ -1,26 +1,27 @@
-import streamlit as st
 import os
 import uuid
 from typing import List
 
-# LangChain 관련 라이브러리
-from langchain.storage import LocalFileStore
-from langchain.embeddings import CacheBackedEmbeddings
-from langchain_core.messages.chat import ChatMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PDFPlumberLoader
-from langchain_community.vectorstores import FAISS
-from langchain_experimental.tools import PythonREPLTool
-from langchain_core.tools.retriever import create_retriever_tool
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-from langchain_tavily import TavilySearch
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
-from langchain_teddynote import logging
+import streamlit as st
 
 # 환경 설정
 from dotenv import load_dotenv
+from langchain.embeddings import CacheBackedEmbeddings
+
+# LangChain 관련 라이브러리
+from langchain.storage import LocalFileStore
+from langchain_community.document_loaders import PDFPlumberLoader
+from langchain_community.vectorstores import FAISS
+from langchain_core.messages.chat import ChatMessage
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.tools.retriever import create_retriever_tool
+from langchain_experimental.tools import PythonREPLTool
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_tavily import TavilySearch
+from langchain_teddynote import logging
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import create_react_agent
 
 # API KEY를 환경변수로 관리하기 위한 설정 파일
 load_dotenv(override=True)
@@ -224,7 +225,6 @@ def print_messages():
                 content = msg_data.get("content")
                 tool_calls = msg_data.get("tool_calls", [])
 
-
                 with st.chat_message(role):
                     # 도구 호출 정보가 있는 경우 먼저 표시
                     if tool_calls:
@@ -240,7 +240,6 @@ def print_messages():
                                         if isinstance(value, str) and len(value) > 100:
                                             value = value[:100] + "..."
                                         st.markdown(f"  • `{key}`: {value}")
-
 
                                 # 도구 실행 결과 표시
                                 if "result" in tool_call:
@@ -334,7 +333,6 @@ with st.sidebar:
     use_web_search = st.checkbox(
         "🌐 웹 검색 도구",
         value=True,
-        help="실시간 웹 검색을 통해 최신 정보를 찾습니다.",
         help="실시간 웹 검색을 통해 최신 정보를 찾습니다.",
     )
 
@@ -433,20 +431,13 @@ def setup_agent():
     }
     config_str = str(sorted(current_config.items()))
 
-
     # 설정이 변경된 경우에만 Agent 재생성
     if (
         st.session_state["current_tool_config"] != config_str
         or st.session_state["agent"] is None
     ):
 
-    if (
-        st.session_state["current_tool_config"] != config_str
-        or st.session_state["agent"] is None
-    ):
-
         tools = []
-
 
         # 웹 검색 도구 추가
         if use_web_search:
@@ -462,7 +453,6 @@ def setup_agent():
         # Python REPL 도구 추가
         if use_python_repl:
             tools.append(create_python_repl_tool())
-
 
         # PDF 리트리버 도구 추가
         if use_pdf_retriever:
@@ -550,7 +540,6 @@ if user_input:
                                     if tool_call["id"] == tool_id:
                                         tool_call["result"] = content
                                         break
-
 
                         # AI의 최종 응답 추출
                         ai_messages = [
