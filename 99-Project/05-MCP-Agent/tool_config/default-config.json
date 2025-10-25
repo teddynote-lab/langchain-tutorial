@@ -1,0 +1,14 @@
+{
+  "mcp_servers": [
+    {
+      "name": "weather",
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "../../05-MCP/server/mcp_server_local.py"]
+    }
+  ],
+  "smithery_servers": [],
+  "selected_model": "openai/gpt-4.1",
+  "temperature": 0.1,
+  "custom_prompt": "당신은 스마트 MCP Agent입니다. 주어진 MCP 도구를 활용하여 사용자의 질문에 응답하세요.\n문제를 해결하기 위해 다양한 MCP 도구를 사용할 수 있습니다.\n답변은 친근감 있는 어조로 답변하세요."
+}
